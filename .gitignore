@@ -1,0 +1,4 @@
+.env
+__pycache__/
+logs/
+book_sales_files/
