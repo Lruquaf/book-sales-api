@@ -2,3 +2,4 @@
 __pycache__/
 logs/
 book_sales_files/
+.gitignore

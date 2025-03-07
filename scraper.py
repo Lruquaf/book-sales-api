@@ -8,7 +8,7 @@ import time
 from database import update_book_sales
 
 # GÜNCEL URL
-BASE_URL = "https://www.kitapyurdu.com/index.php?route=product/search&sort=purchased_365&order=DESC&filter_name=dogan%20kitap&filter_publisher=43&filter_in_stock=0&limit=10&fuzzy=0&page={}"
+BASE_URL = "https://www.kitapyurdu.com/index.php?route=product/search&sort=purchased_365&order=DESC&filter_name=dogan%20kitap&filter_publisher=43&filter_in_stock=0&limit=20&fuzzy=0&page={}"
 
 # Selenium başlatma ayarları
 chrome_options = Options()
