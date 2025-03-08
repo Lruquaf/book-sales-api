@@ -33,17 +33,17 @@ def fetch_books():
         print(f"📡 Sayfa {page} taranıyor: {url}")
 
         driver.get(url)
-        time.sleep(3)  # Sayfanın JavaScript ile tamamen yüklenmesini bekle
+        time.sleep(5)  # Sayfanın JavaScript ile tamamen yüklenmesini bekle
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
 
-        # ✅ Artık `product-table` gerçekten sayfada var mı kontrol edelim
-        product_list = soup.find("div", {"id": "product-table"})
-        if not product_list or isTest:
-            print("❌ `product-table` bulunamadı, sayfa yapısı değişmiş olabilir.")
-            break
+        # # ✅ Artık `product-table` gerçekten sayfada var mı kontrol edelim
+        # product_list = soup.find("div", {"class": "product-list"})
+        # if not product_list or isTest:
+        #     print("❌ `product-table` bulunamadı, sayfa yapısı değişmiş olabilir.")
+        #     break
 
-        books = product_list.find_all("div", {"class": "product-cr"})
+        books = soup.find_all("div", {"class": "product-cr"})
         if not books or isTest:
             print("✅ Tüm kitaplar tarandı, işlem tamamlandı.")
             break
