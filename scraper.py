@@ -8,7 +8,7 @@ import time
 from database import update_book_sales
 
 # GÜNCEL URL
-BASE_URL = "https://www.kitapyurdu.com/index.php?route=product/search&sort=purchased_365&order=DESC&filter_name=dogan%20kitap&filter_publisher=43&filter_in_stock=0&limit=20&fuzzy=0&page={}"
+BASE_URL = "https://www.kitapyurdu.com/index.php?route=product/publisher_products/all&sort=pd.name&order=ASC&publisher_id=43&filter_in_stock=1&limit=100&page={}"
 
 # Selenium başlatma ayarları
 chrome_options = Options()
@@ -70,8 +70,8 @@ def fetch_books():
             except Exception as e:
                 print(f"❌ Kitap verisi çekerken hata oluştu: {e}")
 
-        # page += 1
-        isTest = True
+        page += 1
+        # isTest = True
 
     driver.quit()  # Tarayıcıyı kapat
     print(f"✅ Toplam {total_books_fetched} kitap başarıyla güncellendi.")
