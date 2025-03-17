@@ -5,7 +5,7 @@ from fastapi import HTTPException, Depends
 from export_data import export_data
 from auth import admin_required  # Admin kimliğini almak için
 from config import SMTP_SERVER, SMTP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, ADMIN_EMAILS
-
+from datetime import datetime
 
 def send_email(admin_id: str):
     # CSV ve Excel dosyalarını oluştur
@@ -20,14 +20,17 @@ def send_email(admin_id: str):
     if not recipient_email:
         raise HTTPException(status_code=400, detail="Admin email not found.")
 
+    # ✅ Generate dynamic subject line and email body
+    date_str = datetime.now().strftime("%d/%m/%Y")
+    subject = f"Doğan Kitap Daily Sales Report - {date_str}"
+    body = f"Attached are the daily book sales reports for {date_str} in CSV and Excel format."
+
     # E-posta oluştur
     msg = EmailMessage()
-    msg["Subject"] = "Daily Book Sales Report"
+    msg["Subject"] = subject
     msg["From"] = EMAIL_ADDRESS
     msg["To"] = recipient_email
-    msg.set_content(
-        "Attached are the daily book sales reports in CSV and Excel format."
-    )
+    msg.set_content(body)
 
     # Dosyaları ekle
     for file_path in [csv_file, excel_file]:
