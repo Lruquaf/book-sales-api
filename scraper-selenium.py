@@ -1,35 +1,50 @@
-import requests
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
-from database import update_book_sales
 import time
+from database import update_book_sales
 
 # GÜNCEL URL
 BASE_URL = "https://www.kitapyurdu.com/index.php?route=product/publisher_products/all&sort=pd.name&order=ASC&publisher_id=43&filter_in_stock=1&limit=100&page={}"
 
-# Tarayıcıyı taklit eden bir User-Agent belirle
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-}
+# Selenium başlatma ayarları
+chrome_options = Options()
+chrome_options.add_argument("--headless")  # Tarayıcıyı arka planda çalıştır
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--window-size=1920x1080")
+chrome_options.add_argument("--disable-dev-shm-usage")
 
 
 def fetch_books():
     """Kitapyurdu'ndan kitapları çeker ve veritabanına kaydeder."""
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
     page = 1
     total_books_fetched = 0
+    isTest = False
 
     while True:
         url = BASE_URL.format(page)
         print(f"📡 Sayfa {page} taranıyor: {url}")
 
-        response = requests.get(url, headers=HEADERS)
-        if response.status_code != 200:
-            print(f"❌ Sayfa yüklenirken hata oluştu: {response.status_code}")
-            break
+        driver.get(url)
+        time.sleep(5)  # Sayfanın JavaScript ile tamamen yüklenmesini bekle
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+
+        # # ✅ Artık `product-table` gerçekten sayfada var mı kontrol edelim
+        # product_list = soup.find("div", {"class": "product-list"})
+        # if not product_list or isTest:
+        #     print("❌ `product-table` bulunamadı, sayfa yapısı değişmiş olabilir.")
+        #     break
 
         books = soup.find_all("div", {"class": "product-cr"})
-        if not books:
+        if not books or isTest:
             print("✅ Tüm kitaplar tarandı, işlem tamamlandı.")
             break
 
@@ -37,9 +52,7 @@ def fetch_books():
             try:
                 link_element = book.find("a", {"class": "pr-img-link"})
                 if link_element and "href" in link_element.attrs:
-                    book_url = link_element["href"]
-                    book_data = fetch_book_data(book_url)
-
+                    book_data = fetch_book_data(link_element["href"], driver)
                     if book_data:
                         print(
                             f"📖 Kitap Bulundu: ISBN: {book_data['isbn']}, Adı: {book_data['name']}, Satış: {book_data['total_sales']}"
@@ -58,19 +71,17 @@ def fetch_books():
                 print(f"❌ Kitap verisi çekerken hata oluştu: {e}")
 
         page += 1
-        time.sleep(1)  # Sunucuyu yormamak için 1 saniye bekleyelim
+        # isTest = True
 
+    driver.quit()  # Tarayıcıyı kapat
     print(f"✅ Toplam {total_books_fetched} kitap başarıyla güncellendi.")
 
 
-def fetch_book_data(book_url):
+def fetch_book_data(url, driver):
     """Bir kitabın detaylarını çeker, ISBN’si olmayanları atlar."""
-    response = requests.get(book_url, headers=HEADERS)
-    if response.status_code != 200:
-        print(f"❌ Kitap sayfası yüklenirken hata oluştu: {response.status_code}")
-        return None
-
-    soup = BeautifulSoup(response.text, "html.parser")
+    driver.get(url)
+    time.sleep(3)  # Sayfanın yüklenmesini bekle
+    soup = BeautifulSoup(driver.page_source, "html.parser")
 
     try:
         title = soup.find("h1", {"class": "pr_header__heading"}).text.strip()
