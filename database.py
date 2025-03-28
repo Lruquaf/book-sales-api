@@ -1,6 +1,7 @@
 from pymongo import MongoClient
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from config import MONGO_URI, DATABASE_NAME
+
 
 client = MongoClient(MONGO_URI)
 db = client[DATABASE_NAME]
@@ -106,3 +107,38 @@ def get_all_books():
 def get_book_by_isbn(isbn):
     book = books_collection.find_one({"_id": isbn})
     return book if book else None
+
+
+def save_forecast(isbn, forecast_data):
+    book = books_collection.find_one({"_id": isbn})
+    if not book:
+        print(f"❌ Kitap bulunamadı: {isbn}")
+        return
+
+    # Tahmin yapılacak tarih: satış verisinin bir gün sonrası
+    latest_date = sorted(book.get("sales_history", []), key=lambda x: x["date"])[-1][
+        "date"
+    ]
+    forecast_date = (
+        datetime.strptime(latest_date, "%Y-%m-%d") + timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
+    existing_entry = next(
+        (f for f in book.get("forecast_history", []) if f["date"] == forecast_date),
+        None,
+    )
+
+    forecast_data_with_date = {"date": forecast_date, **forecast_data}
+
+    if existing_entry:
+        print(f"🔁 Tahmin zaten var, güncelleniyor: {forecast_date}")
+        books_collection.update_one(
+            {"_id": isbn, "forecast_history.date": forecast_date},
+            {"$set": {f"forecast_history.$": forecast_data_with_date}},
+        )
+    else:
+        print(f"🆕 Yeni tahmin ekleniyor: {forecast_date}")
+        books_collection.update_one(
+            {"_id": isbn},
+            {"$push": {"forecast_history": forecast_data_with_date}},
+        )
