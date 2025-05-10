@@ -7,20 +7,19 @@ from bs4 import BeautifulSoup
 import time
 from database import update_book_sales
 
-# GÜNCEL URL
+# AKTUELLE URL für die Verlagsseite bei Kitapyurdu
 BASE_URL = "https://www.kitapyurdu.com/index.php?route=product/publisher_products/all&sort=pd.name&order=ASC&publisher_id=43&filter_in_stock=1&limit=100&page={}"
 
-# Selenium başlatma ayarları
+# Selenium-Optionen zum Starten des Browsers im Hintergrund
 chrome_options = Options()
-chrome_options.add_argument("--headless")  # Tarayıcıyı arka planda çalıştır
+chrome_options.add_argument("--headless")  # Browser im Hintergrund ausführen
 chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--window-size=1920x1080")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
-
 def fetch_books():
-    """Kitapyurdu'ndan kitapları çeker ve veritabanına kaydeder."""
+    """Holt Bücher von Kitapyurdu und speichert sie in die Datenbank."""
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
@@ -30,22 +29,17 @@ def fetch_books():
 
     while True:
         url = BASE_URL.format(page)
-        print(f"📡 Sayfa {page} taranıyor: {url}")
+        print(f"Seite {page} wird geladen: {url}")
 
         driver.get(url)
-        time.sleep(5)  # Sayfanın JavaScript ile tamamen yüklenmesini bekle
+        time.sleep(5)  # Warte, bis JavaScript die Seite vollständig lädt
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
 
-        # # ✅ Artık `product-table` gerçekten sayfada var mı kontrol edelim
-        # product_list = soup.find("div", {"class": "product-list"})
-        # if not product_list or isTest:
-        #     print("❌ `product-table` bulunamadı, sayfa yapısı değişmiş olabilir.")
-        #     break
-
+        # Bücherliste auf der Seite extrahieren
         books = soup.find_all("div", {"class": "product-cr"})
         if not books or isTest:
-            print("✅ Tüm kitaplar tarandı, işlem tamamlandı.")
+            print("Alle Bücher wurden verarbeitet.")
             break
 
         for book in books:
@@ -55,7 +49,7 @@ def fetch_books():
                     book_data = fetch_book_data(link_element["href"], driver)
                     if book_data:
                         print(
-                            f"📖 Kitap Bulundu: ISBN: {book_data['isbn']}, Adı: {book_data['name']}, Satış: {book_data['total_sales']}"
+                            f"Buch gefunden: ISBN: {book_data['isbn']}, Titel: {book_data['name']}, Verkäufe: {book_data['total_sales']}"
                         )
                         update_book_sales(
                             book_data["isbn"],
@@ -64,23 +58,22 @@ def fetch_books():
                         )
                         total_books_fetched += 1
                     else:
-                        print("❌ Kitap verisi çekilemedi.")
+                        print("Buchdaten konnten nicht geladen werden.")
                 else:
-                    print("❌ Link bulunamadı!")
+                    print("Kein Link gefunden.")
             except Exception as e:
-                print(f"❌ Kitap verisi çekerken hata oluştu: {e}")
+                print(f"Fehler beim Verarbeiten eines Buches: {e}")
 
         page += 1
         # isTest = True
 
-    driver.quit()  # Tarayıcıyı kapat
-    print(f"✅ Toplam {total_books_fetched} kitap başarıyla güncellendi.")
-
+    driver.quit()  # Browser schließen
+    print(f"Insgesamt {total_books_fetched} Bücher wurden erfolgreich aktualisiert.")
 
 def fetch_book_data(url, driver):
-    """Bir kitabın detaylarını çeker, ISBN’si olmayanları atlar."""
+    """Lädt die Detailinformationen eines Buches. Bücher ohne ISBN werden übersprungen."""
     driver.get(url)
-    time.sleep(3)  # Sayfanın yüklenmesini bekle
+    time.sleep(3)  # Warten bis die Detailseite geladen ist
     soup = BeautifulSoup(driver.page_source, "html.parser")
 
     try:
@@ -88,11 +81,11 @@ def fetch_book_data(url, driver):
         isbn_td = soup.find("td", string="ISBN:")
         isbn = (
             isbn_td.find_next("td").text.strip() if isbn_td else None
-        )  # ISBN yoksa None olarak al
+        )  # Falls kein ISBN vorhanden ist, auf None setzen
 
-        # 📌 ISBN’si olmayan kitapları atlıyoruz!
+        # Bücher ohne ISBN überspringen
         if not isbn or isbn == "N/A" or isbn.strip() == "":
-            print(f"⏩ Kitap atlandı (ISBN yok): {title}")
+            print(f"Buch übersprungen (kein ISBN): {title}")
             return None
 
         sales_element = soup.find("p", {"class": "purchased"})
@@ -102,5 +95,6 @@ def fetch_book_data(url, driver):
 
         return {"isbn": isbn, "name": title, "total_sales": total_sales}
     except Exception as e:
-        print(f"❌ Hata: {e}")
+        print(f"Fehler: {e}")
         return None
+

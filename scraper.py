@@ -3,34 +3,34 @@ from bs4 import BeautifulSoup
 from database import update_book_sales
 import time
 
-# GÜNCEL URL
+# AKTUELLE URL für die Verlagsseite bei Kitapyurdu
 BASE_URL = "https://www.kitapyurdu.com/index.php?route=product/publisher_products/all&sort=pd.name&order=ASC&publisher_id=43&filter_in_stock=1&limit=100&page={}"
 
-# Tarayıcıyı taklit eden bir User-Agent belirle
+# User-Agent definieren, um den Browser zu imitieren
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-
 def fetch_books():
-    """Kitapyurdu'ndan kitapları çeker ve veritabanına kaydeder."""
+    """Holt Bücher von Kitapyurdu und speichert sie in die Datenbank."""
     page = 1
     total_books_fetched = 0
 
     while True:
         url = BASE_URL.format(page)
-        print(f"📡 Sayfa {page} taranıyor: {url}")
+        print(f"Seite {page} wird geladen: {url}")
 
         response = requests.get(url, headers=HEADERS)
         if response.status_code != 200:
-            print(f"❌ Sayfa yüklenirken hata oluştu: {response.status_code}")
+            print(f"Fehler beim Laden der Seite: Status {response.status_code}")
             break
 
         soup = BeautifulSoup(response.text, "html.parser")
 
+        # Alle Bücher auf der Seite finden
         books = soup.find_all("div", {"class": "product-cr"})
         if not books:
-            print("✅ Tüm kitaplar tarandı, işlem tamamlandı.")
+            print("Alle Bücher wurden verarbeitet.")
             break
 
         for book in books:
@@ -42,7 +42,7 @@ def fetch_books():
 
                     if book_data:
                         print(
-                            f"📖 Kitap Bulundu: ISBN: {book_data['isbn']}, Adı: {book_data['name']}, Satış: {book_data['total_sales']}"
+                            f"Buch gefunden: ISBN: {book_data['isbn']}, Titel: {book_data['name']}, Verkäufe: {book_data['total_sales']}"
                         )
                         update_book_sales(
                             book_data["isbn"],
@@ -51,23 +51,22 @@ def fetch_books():
                         )
                         total_books_fetched += 1
                     else:
-                        print("❌ Kitap verisi çekilemedi.")
+                        print("Buchdaten konnten nicht geladen werden.")
                 else:
-                    print("❌ Link bulunamadı!")
+                    print("Link nicht gefunden.")
             except Exception as e:
-                print(f"❌ Kitap verisi çekerken hata oluştu: {e}")
+                print(f"Fehler beim Verarbeiten eines Buches: {e}")
 
         page += 1
-        time.sleep(1)  # Sunucuyu yormamak için 1 saniye bekleyelim
+        time.sleep(1)  # 1 Sekunde warten, um den Server nicht zu überlasten
 
-    print(f"✅ Toplam {total_books_fetched} kitap başarıyla güncellendi.")
-
+    print(f"Insgesamt {total_books_fetched} Bücher wurden erfolgreich aktualisiert.")
 
 def fetch_book_data(book_url):
-    """Bir kitabın detaylarını çeker, ISBN’si olmayanları atlar."""
+    """Lädt die Detailinformationen eines Buches. Bücher ohne ISBN werden übersprungen."""
     response = requests.get(book_url, headers=HEADERS)
     if response.status_code != 200:
-        print(f"❌ Kitap sayfası yüklenirken hata oluştu: {response.status_code}")
+        print(f"Fehler beim Laden der Buchseite: Status {response.status_code}")
         return None
 
     soup = BeautifulSoup(response.text, "html.parser")
@@ -77,11 +76,11 @@ def fetch_book_data(book_url):
         isbn_td = soup.find("td", string="ISBN:")
         isbn = (
             isbn_td.find_next("td").text.strip() if isbn_td else None
-        )  # ISBN yoksa None olarak al
+        )  # Falls kein ISBN vorhanden ist, auf None setzen
 
-        # 📌 ISBN’si olmayan kitapları atlıyoruz!
+        # Bücher ohne ISBN überspringen
         if not isbn or isbn == "N/A" or isbn.strip() == "":
-            print(f"⏩ Kitap atlandı (ISBN yok): {title}")
+            print(f"Buch übersprungen (kein ISBN): {title}")
             return None
 
         sales_element = soup.find("p", {"class": "purchased"})
@@ -91,5 +90,6 @@ def fetch_book_data(book_url):
 
         return {"isbn": isbn, "name": title, "total_sales": total_sales}
     except Exception as e:
-        print(f"❌ Hata: {e}")
+        print(f"Fehler: {e}")
         return None
+

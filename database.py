@@ -2,11 +2,9 @@ from pymongo import MongoClient
 from datetime import datetime, timedelta, timezone
 from config import MONGO_URI, DATABASE_NAME
 
-
 client = MongoClient(MONGO_URI)
 db = client[DATABASE_NAME]
 books_collection = db["books"]
-
 
 def update_book_sales(isbn, name, total_sales):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -15,7 +13,7 @@ def update_book_sales(isbn, name, total_sales):
     if book:
         previous_total_sales = book.get("total_sales", 0)
 
-        # Aynı gün için bir kayıt var mı kontrol et
+        # Prüfen, ob es bereits einen Eintrag für das heutige Datum gibt
         existing_sales_entry = next(
             (
                 entry
@@ -29,7 +27,7 @@ def update_book_sales(isbn, name, total_sales):
             last_recorded_total_sales = existing_sales_entry["total_sales"]
             previous_daily_sales = (
                 existing_sales_entry["daily_sales"] or 0
-            )  # Eğer None ise 0 al
+            )  # Falls None, als 0 behandeln
             daily_sales = (
                 total_sales - last_recorded_total_sales
             ) + previous_daily_sales
@@ -47,19 +45,19 @@ def update_book_sales(isbn, name, total_sales):
         }
 
         if existing_sales_entry:
-            # Güncellenmiş günlük satışları yaz
+            # Aktualisierung der täglichen Verkaufszahlen
             books_collection.update_one(
                 {"_id": isbn, "sales_history.date": today},
                 {
                     "$set": {
                         "sales_history.$.total_sales": total_sales,
-                        "sales_history.$.daily_sales": daily_sales,  # Günlük satışları birikimli olarak hesapla
+                        "sales_history.$.daily_sales": daily_sales,
                     },
                     "$set": update_fields,
                 },
             )
         else:
-            # Eğer aynı gün için giriş yoksa, yeni giriş ekle
+            # Neuer Eintrag für den heutigen Tag hinzufügen
             books_collection.update_one(
                 {"_id": isbn},
                 {
@@ -75,7 +73,7 @@ def update_book_sales(isbn, name, total_sales):
             )
 
     else:
-        # Kitap daha önce eklenmediyse yeni kayıt oluştur
+        # Neues Buchdokument erstellen, wenn es noch nicht vorhanden ist
         books_collection.insert_one(
             {
                 "_id": isbn,
@@ -88,7 +86,6 @@ def update_book_sales(isbn, name, total_sales):
             }
         )
 
-
 def get_all_books():
     books = list(
         books_collection.find(
@@ -97,25 +94,23 @@ def get_all_books():
     )
 
     if not books:
-        print("❌ Veritabanında hiç kitap bulunamadı!")  # LOG: Eğer veri yoksa
+        print("Es wurden keine Bücher in der Datenbank gefunden.")
     else:
-        print(f"📚 Veritabanında {len(books)} kitap bulundu.")  # LOG: Kaç kitap var
+        print(f"Insgesamt {len(books)} Bücher in der Datenbank gefunden.")
 
     return books
-
 
 def get_book_by_isbn(isbn):
     book = books_collection.find_one({"_id": isbn})
     return book if book else None
 
-
 def save_forecast(isbn, forecast_data):
     book = books_collection.find_one({"_id": isbn})
     if not book:
-        print(f"❌ Kitap bulunamadı: {isbn}")
+        print(f"Buch mit ISBN {isbn} nicht gefunden.")
         return
 
-    # Tahmin yapılacak tarih: satış verisinin bir gün sonrası
+    # Prognosedatum ist der Tag nach dem letzten Verkaufsdatum
     latest_date = sorted(book.get("sales_history", []), key=lambda x: x["date"])[-1][
         "date"
     ]
@@ -131,14 +126,15 @@ def save_forecast(isbn, forecast_data):
     forecast_data_with_date = {"date": forecast_date, **forecast_data}
 
     if existing_entry:
-        print(f"🔁 Tahmin zaten var, güncelleniyor: {forecast_date}")
+        print(f"Prognose für {forecast_date} bereits vorhanden. Aktualisierung wird durchgeführt.")
         books_collection.update_one(
             {"_id": isbn, "forecast_history.date": forecast_date},
             {"$set": {f"forecast_history.$": forecast_data_with_date}},
         )
     else:
-        print(f"🆕 Yeni tahmin ekleniyor: {forecast_date}")
+        print(f"Neue Prognose wird gespeichert für {forecast_date}.")
         books_collection.update_one(
             {"_id": isbn},
             {"$push": {"forecast_history": forecast_data_with_date}},
         )
+
