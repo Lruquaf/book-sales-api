@@ -23,6 +23,7 @@ Kemik Bah√ßesi
 # ✅ Character mapping for Turkish characters
 CHARACTER_MAP = {
     '√º': 'ü', '√ß': 'ç',
+    '√ú': 'Ü',
     '≈û': 'Ş', '≈ü': 'ş',
     'Ã‡': 'Ç', 'Ã§': 'ç',
     'Ä°': 'İ', 'Ä±': 'ı',
